@@ -1,0 +1,98 @@
+:root {
+  font-family: "Poppins", "Avenir", "Segoe UI", sans-serif;
+  color: #1b1b1b;
+  background: radial-gradient(circle at top, #fff6e6, #fef1f1 50%, #f7f7ff);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.container {
+  width: min(720px, 100%);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 24px 60px rgba(20, 20, 50, 0.15);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.brand-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, #ff7b59, #ffcb57);
+  box-shadow: 0 0 12px rgba(255, 123, 89, 0.7);
+}
+
+h1 {
+  font-size: 32px;
+  margin: 0;
+}
+
+p {
+  margin: 8px 0 0;
+  color: #555;
+}
+
+.panel {
+  margin-top: 28px;
+  padding: 24px;
+  border-radius: 18px;
+  background: #f7f8ff;
+  display: grid;
+  gap: 16px;
+}
+
+input[type="text"] {
+  padding: 12px 14px;
+  font-size: 16px;
+  border-radius: 12px;
+  border: 1px solid #d7d9ff;
+}
+
+button {
+  padding: 12px 18px;
+  font-size: 16px;
+  border-radius: 12px;
+  border: none;
+  background: #1f1f2e;
+  color: white;
+  cursor: pointer;
+}
+
+.note {
+  font-size: 14px;
+  color: #666;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-card img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
