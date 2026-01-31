@@ -31,3 +31,4 @@ Minimal full-stack starter for a Google-authenticated movie prompt flow.
 ## Notes
 - The UI shows a Google sign-in button first. After login, it prompts for a movie title.
 - The backend verifies the Google ID token using `GOOGLE_CLIENT_ID`.
+- In Google Cloud Console, set the OAuth client type to Web, add `http://localhost:5173` to Authorized JavaScript origins, and reuse the same client ID for both frontend and backend.

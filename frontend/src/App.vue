@@ -11,6 +11,9 @@
     <div v-if="!user" class="panel">
       <strong>Sign in to continue</strong>
       <div id="google-signin"></div>
+      <p v-if="missingClientId" class="note">
+        Missing VITE_GOOGLE_CLIENT_ID. Add it to frontend/.env and restart Vite.
+      </p>
       <p class="note">
         Use your Google account to unlock personalized movie pairing ideas.
       </p>
@@ -45,6 +48,7 @@ import { onMounted, ref } from "vue";
 const user = ref(null);
 const movieTitle = ref("");
 const movieResponse = ref("");
+const missingClientId = ref(false);
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -93,6 +97,7 @@ async function submitMovie() {
 onMounted(() => {
   if (!googleClientId) {
     console.warn("Missing VITE_GOOGLE_CLIENT_ID");
+    missingClientId.value = true;
     return;
   }
 
