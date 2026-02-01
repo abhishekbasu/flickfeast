@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from google.auth.transport import requests
@@ -10,8 +11,12 @@ class GoogleAuthError(Exception):
     pass
 
 
+logger = logging.getLogger(__name__)
+
+
 def verify_google_token(token: str) -> dict[str, Any]:
     if not settings.google_client_id:
+        logger.error("GOOGLE_CLIENT_ID is not configured")
         raise GoogleAuthError("GOOGLE_CLIENT_ID is not configured")
 
     try:
@@ -19,6 +24,7 @@ def verify_google_token(token: str) -> dict[str, Any]:
             token, requests.Request(), settings.google_client_id
         )
     except Exception as exc:
+        logger.exception("Google token verification failed")
         raise GoogleAuthError("Invalid Google token") from exc
 
     return {

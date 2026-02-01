@@ -1,0 +1,10 @@
+flowchart LR
+    Host["Party Host"] --> UI["UI: Movie Input"]
+    UI --> API["FastAPI /movies/menu"]
+    API --> Manager["MenuManager (Manager Agent)"]
+    Manager --> Searcher["MovieSearcher"]
+    Searcher -->|"get_movie_details"| MovieAPI["OMDb/TMDB"]
+    Searcher --> Food["MovieFoodItems"]
+    Food --> Manager
+    Manager --> API
+    API --> UI

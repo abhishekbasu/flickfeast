@@ -72,6 +72,28 @@ p {
   margin-bottom: 6px;
 }
 
+.menu-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.menu-card {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: white;
+  border: 1px solid #e0e2ff;
+}
+
+.menu-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.menu-reason {
+  color: #555;
+  font-size: 14px;
+}
+
 input[type="text"] {
   padding: 12px 14px;
   font-size: 16px;
@@ -87,6 +109,81 @@ button {
   background: #1f1f2e;
   color: white;
   cursor: pointer;
+}
+
+.results {
+  display: grid;
+  gap: 8px;
+}
+
+.result-item {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  color: #1f1f2e;
+  border: 1px solid #e0e2ff;
+  text-align: left;
+}
+
+.result-poster {
+  width: 56px;
+  height: 84px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.result-poster.placeholder {
+  width: 56px;
+  height: 84px;
+  border-radius: 8px;
+  background: #eceffc;
+  color: #8a8da8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.result-info {
+  display: grid;
+  gap: 4px;
+}
+
+.result-title {
+  font-weight: 600;
+}
+
+.result-meta {
+  font-size: 14px;
+  color: #666;
+}
+
+.empty-state {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #fef7ff;
+  border: 1px dashed #dccff8;
+}
+
+.empty-illustration {
+  width: 140px;
+  height: 120px;
+}
+
+.empty-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.empty-text {
+  color: #666;
+  font-size: 14px;
 }
 
 .note {

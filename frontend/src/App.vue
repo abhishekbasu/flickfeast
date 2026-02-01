@@ -37,13 +37,50 @@
         v-model="movieTitle"
         type="text"
         placeholder="Type a movie title"
+        @input="queueSearch"
         @keyup.enter="submitMovie"
       />
       <button @click="submitMovie">Continue</button>
+      <div v-if="searchResults.length" class="results">
+        <div class="note">Select the best match:</div>
+        <button
+          v-for="result in searchResults"
+          :key="result.title + result.year + result.imdb_id"
+          type="button"
+          class="result-item"
+          @click="selectMovie(result)"
+        >
+          <img
+            v-if="result.poster"
+            :src="result.poster"
+            alt=""
+            class="result-poster"
+          />
+          <div v-else class="result-poster placeholder">No image</div>
+          <div class="result-info">
+            <div class="result-title">{{ result.title }}</div>
+            <div class="result-meta">{{ result.year }}</div>
+          </div>
+        </button>
+      </div>
+      <div v-else-if="showEmptyState" class="empty-state">
+        <img
+          class="empty-illustration"
+          src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='120' viewBox='0 0 140 120'><rect width='140' height='120' rx='24' fill='%23f6f3ff'/><circle cx='50' cy='52' r='18' fill='%23d8cffb'/><rect x='28' y='74' width='88' height='22' rx='11' fill='%23d8cffb'/><path d='M83 40c9 1 16 9 16 18' stroke='%23958ad6' stroke-width='4' stroke-linecap='round' fill='none'/></svg>"
+          alt=""
+        />
+        <div>
+          <div class="empty-title">Oops, we didn’t find that one.</div>
+          <div class="empty-text">Try a different title or check the spelling.</div>
+        </div>
+      </div>
       <p v-if="movieResponse" class="note">{{ movieResponse }}</p>
-      <ul v-if="menuItems.length">
-        <li v-for="item in menuItems" :key="item">{{ item }}</li>
-      </ul>
+      <div v-if="menuItems.length" class="menu-grid">
+        <div v-for="item in menuItems" :key="item.name" class="menu-card">
+          <div class="menu-title">{{ item.name }}</div>
+          <div class="menu-reason">{{ item.reason }}</div>
+        </div>
+      </div>
       <p v-if="menuNotes" class="note">{{ menuNotes }}</p>
     </div>
   </div>
@@ -57,6 +94,9 @@ const movieTitle = ref("");
 const movieResponse = ref("");
 const menuItems = ref([]);
 const menuNotes = ref("");
+const searchResults = ref([]);
+const showEmptyState = ref(false);
+let searchTimeout = null;
 const missingClientId = ref(false);
 const isTestMode =
   import.meta.env.VITE_IN_TEST === "true" ||
@@ -110,6 +150,7 @@ async function submitMovie() {
   movieResponse.value = menuItems.value.length
     ? "Here is your movie-themed menu."
     : "No menu items found.";
+  searchResults.value = [];
 }
 
 onMounted(() => {
@@ -146,7 +187,44 @@ function bypassLogin() {
   user.value = {
     name: "Test User",
     email: "test@example.com",
-    picture: "https://via.placeholder.com/96",
+    picture:
+      "data:image/svg+xml;utf8," +
+      "<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'>" +
+      "<rect width='96' height='96' rx='24' fill='%23f1f3ff'/>" +
+      "<circle cx='48' cy='38' r='16' fill='%23c7cbe8'/>" +
+      "<rect x='22' y='58' width='52' height='24' rx='12' fill='%23c7cbe8'/>" +
+      "</svg>",
   };
+}
+
+function queueSearch() {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  searchTimeout = setTimeout(runSearch, 500);
+}
+
+async function runSearch() {
+  const query = movieTitle.value.trim();
+  if (query.length < 2) {
+    searchResults.value = [];
+    showEmptyState.value = false;
+    return;
+  }
+  const res = await fetch(`${apiBaseUrl}/movies/search?query=${encodeURIComponent(query)}`);
+  if (!res.ok) {
+    searchResults.value = [];
+    showEmptyState.value = true;
+    return;
+  }
+  const data = await res.json();
+  searchResults.value = data.filter((result) => result.poster);
+  showEmptyState.value = searchResults.value.length === 0;
+}
+
+function selectMovie(result) {
+  movieTitle.value = result.title;
+  searchResults.value = [];
+  showEmptyState.value = false;
 }
 </script>
