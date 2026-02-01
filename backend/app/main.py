@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from .agents_flow import build_menu
 from .auth import GoogleAuthError, verify_google_token
 from .config import settings
 
@@ -46,3 +47,16 @@ async def lookup_movie(payload: MovieRequest) -> dict[str, str]:
         raise HTTPException(status_code=400, detail="Movie title is required")
 
     return {"message": f"Thanks! You entered '{title}'."}
+
+
+@app.post("/movies/menu")
+async def movie_menu(payload: MovieRequest) -> dict[str, list[str] | str]:
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Movie title is required")
+
+    menu = await build_menu(title)
+    if not menu.get("items"):
+        raise HTTPException(status_code=404, detail=menu.get("notes", "Movie not found"))
+
+    return menu

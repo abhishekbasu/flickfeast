@@ -10,7 +10,10 @@
 
     <div v-if="!user" class="panel">
       <strong>Sign in to continue</strong>
-      <div id="google-signin"></div>
+      <div v-if="!isTestMode" id="google-signin"></div>
+      <button v-else type="button" @click="bypassLogin">
+        Continue in test mode
+      </button>
       <p v-if="missingClientId" class="note">
         Missing VITE_GOOGLE_CLIENT_ID. Add it to frontend/.env and restart Vite.
       </p>
@@ -38,6 +41,10 @@
       />
       <button @click="submitMovie">Continue</button>
       <p v-if="movieResponse" class="note">{{ movieResponse }}</p>
+      <ul v-if="menuItems.length">
+        <li v-for="item in menuItems" :key="item">{{ item }}</li>
+      </ul>
+      <p v-if="menuNotes" class="note">{{ menuNotes }}</p>
     </div>
   </div>
 </template>
@@ -48,7 +55,12 @@ import { onMounted, ref } from "vue";
 const user = ref(null);
 const movieTitle = ref("");
 const movieResponse = ref("");
+const menuItems = ref([]);
+const menuNotes = ref("");
 const missingClientId = ref(false);
+const isTestMode =
+  import.meta.env.VITE_IN_TEST === "true" ||
+  import.meta.env.IN_TEST === "true";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -79,22 +91,31 @@ async function submitMovie() {
     return;
   }
 
-  const res = await fetch(`${apiBaseUrl}/movies/lookup`, {
+  const res = await fetch(`${apiBaseUrl}/movies/menu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
   });
 
   if (!res.ok) {
-    movieResponse.value = "Unable to save movie right now.";
+    movieResponse.value = "Unable to build a menu right now.";
+    menuItems.value = [];
+    menuNotes.value = "";
     return;
   }
 
   const data = await res.json();
-  movieResponse.value = data.message;
+  menuItems.value = data.items || [];
+  menuNotes.value = data.notes || "";
+  movieResponse.value = menuItems.value.length
+    ? "Here is your movie-themed menu."
+    : "No menu items found.";
 }
 
 onMounted(() => {
+  if (isTestMode) {
+    return;
+  }
   if (!googleClientId) {
     console.warn("Missing VITE_GOOGLE_CLIENT_ID");
     missingClientId.value = true;
@@ -120,4 +141,12 @@ onMounted(() => {
 
   initGoogle();
 });
+
+function bypassLogin() {
+  user.value = {
+    name: "Test User",
+    email: "test@example.com",
+    picture: "https://via.placeholder.com/96",
+  };
+}
 </script>
