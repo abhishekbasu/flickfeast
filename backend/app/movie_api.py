@@ -137,15 +137,18 @@ def _search_omdb(query: str) -> list[dict[str, str]]:
 
     results = []
     for item in data.get("Search", []):
+        poster = item.get("Poster", "")
+        if not poster or poster == "N/A":
+            continue
         results.append(
             {
                 "title": item.get("Title", ""),
                 "year": item.get("Year", ""),
                 "imdb_id": item.get("imdbID", ""),
-                "poster": item.get("Poster", ""),
+                "poster": poster,
             }
         )
-    return results
+    return results[:5]
 
 
 def _search_tmdb(query: str) -> list[dict[str, str]]:
@@ -170,6 +173,8 @@ def _search_tmdb(query: str) -> list[dict[str, str]]:
     for item in data.get("results", []):
         poster_path = item.get("poster_path") or ""
         poster_url = f"https://image.tmdb.org/t/p/w185{poster_path}" if poster_path else ""
+        if not poster_url:
+            continue
         results.append(
             {
                 "title": item.get("title", ""),
@@ -178,4 +183,4 @@ def _search_tmdb(query: str) -> list[dict[str, str]]:
                 "poster": poster_url,
             }
         )
-    return results
+    return results[:5]

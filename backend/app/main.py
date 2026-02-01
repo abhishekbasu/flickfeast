@@ -40,6 +40,7 @@ class MovieSearchResponse(BaseModel):
 class MenuItemResponse(BaseModel):
     name: str
     reason: str
+    image_data: str | None = None
 
 
 class RecipeResponse(BaseModel):

@@ -16,3 +16,4 @@ wheels/
 .venv
 .env
 backend/server.log
+backend/cache/

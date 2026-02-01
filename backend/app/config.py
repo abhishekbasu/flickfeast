@@ -33,6 +33,7 @@ class Settings:
         self.tmdb_read_access_token = os.getenv("TMDB_API_READ_ACCESS_TOKEN", "")
         self.spoonacular_api_key = os.getenv("SPOONACULAR_API_KEY", "")
         self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        self.openai_image_model = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
 
 
 settings = Settings()

@@ -31,52 +31,74 @@
         </div>
       </div>
 
-      <label for="movie">What movie are we watching?</label>
-      <input
-        id="movie"
-        v-model="movieTitle"
-        type="text"
-        placeholder="Type a movie title"
-        @input="queueSearch"
-        @keyup.enter="submitMovie"
-      />
-      <button @click="submitMovie">Continue</button>
-      <div v-if="searchResults.length" class="results">
-        <div class="note">Select the best match:</div>
-        <button
-          v-for="result in searchResults"
-          :key="result.title + result.year + result.imdb_id"
-          type="button"
-          class="result-item"
-          @click="selectMovie(result)"
-        >
-          <img
-            v-if="result.poster"
-            :src="result.poster"
-            alt=""
-            class="result-poster"
-          />
-          <div v-else class="result-poster placeholder">No image</div>
-          <div class="result-info">
-            <div class="result-title">{{ result.title }}</div>
-            <div class="result-meta">{{ result.year }}</div>
+      <div class="panel-grid" :class="{ selected: selectedMovie }">
+        <div v-if="selectedMovie" class="selected-movie">
+          <img :src="selectedMovie.poster" alt="" />
+          <div>
+            <div class="selected-title">{{ selectedMovie.title }}</div>
+            <div class="selected-year">{{ selectedMovie.year }}</div>
+            <button
+              type="button"
+              class="link-button"
+              @click="clearSelection"
+            >
+              Search another movie
+            </button>
           </div>
-        </button>
-      </div>
-      <div v-else-if="showEmptyState" class="empty-state">
-        <img
-          class="empty-illustration"
-          src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='120' viewBox='0 0 140 120'><rect width='140' height='120' rx='24' fill='%23f6f3ff'/><circle cx='50' cy='52' r='18' fill='%23d8cffb'/><rect x='28' y='74' width='88' height='22' rx='11' fill='%23d8cffb'/><path d='M83 40c9 1 16 9 16 18' stroke='%23958ad6' stroke-width='4' stroke-linecap='round' fill='none'/></svg>"
-          alt=""
-        />
-        <div>
-          <div class="empty-title">Oops, we didn’t find that one.</div>
-          <div class="empty-text">Try a different title or check the spelling.</div>
+        </div>
+
+        <div class="panel-main">
+          <label for="movie">What movie are we watching?</label>
+          <input
+            id="movie"
+            v-model="movieTitle"
+            type="text"
+            placeholder="Type a movie title"
+            @input="queueSearch"
+            @keyup.enter="submitMovie"
+          />
+          <button :disabled="isSubmitting || selectedMovie" @click="submitMovie">
+            Continue
+          </button>
+          <div v-if="searchResults.length" class="results">
+            <div class="note">Select the best match:</div>
+            <button
+              v-for="result in searchResults"
+              :key="result.title + result.year + result.imdb_id"
+              type="button"
+              class="result-item"
+              @click="selectMovie(result)"
+            >
+              <img
+                v-if="result.poster"
+                :src="result.poster"
+                alt=""
+                class="result-poster"
+              />
+              <div v-else class="result-poster placeholder">No image</div>
+              <div class="result-info">
+                <div class="result-title">{{ result.title }}</div>
+                <div class="result-meta">{{ result.year }}</div>
+              </div>
+            </button>
+          </div>
+          <div v-else-if="showEmptyState" class="empty-state">
+            <img
+              class="empty-illustration"
+              src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='120' viewBox='0 0 140 120'><rect width='140' height='120' rx='24' fill='%23f6f3ff'/><circle cx='50' cy='52' r='18' fill='%23d8cffb'/><rect x='28' y='74' width='88' height='22' rx='11' fill='%23d8cffb'/><path d='M83 40c9 1 16 9 16 18' stroke='%23958ad6' stroke-width='4' stroke-linecap='round' fill='none'/></svg>"
+              alt=""
+            />
+            <div>
+              <div class="empty-title">Oops, we didn’t find that one.</div>
+              <div class="empty-text">Try a different title or check the spelling.</div>
+            </div>
+          </div>
         </div>
       </div>
       <p v-if="movieResponse" class="note">{{ movieResponse }}</p>
       <div v-if="menuItems.length" class="menu-grid">
         <div v-for="item in menuItems" :key="item.name" class="menu-card">
+          <img v-if="item.image_data" :src="item.image_data" alt="" />
           <div class="menu-title">{{ item.name }}</div>
           <div class="menu-reason">{{ item.reason }}</div>
         </div>
@@ -111,6 +133,8 @@ const menuNotes = ref("");
 const recipes = ref([]);
 const searchResults = ref([]);
 const showEmptyState = ref(false);
+const selectedMovie = ref(null);
+const isSubmitting = ref(false);
 let searchTimeout = null;
 const missingClientId = ref(false);
 const isTestMode =
@@ -146,6 +170,7 @@ async function submitMovie() {
     return;
   }
 
+  isSubmitting.value = true;
   const res = await fetch(`${apiBaseUrl}/movies/menu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -157,6 +182,7 @@ async function submitMovie() {
     menuItems.value = [];
     menuNotes.value = "";
     recipes.value = [];
+    isSubmitting.value = false;
     return;
   }
 
@@ -168,6 +194,7 @@ async function submitMovie() {
     ? "Here is your movie-themed menu."
     : "No menu items found.";
   searchResults.value = [];
+  isSubmitting.value = false;
 }
 
 onMounted(() => {
@@ -243,5 +270,15 @@ function selectMovie(result) {
   movieTitle.value = result.title;
   searchResults.value = [];
   showEmptyState.value = false;
+  selectedMovie.value = result;
+  submitMovie();
+}
+
+function clearSelection() {
+  selectedMovie.value = null;
+  menuItems.value = [];
+  menuNotes.value = "";
+  recipes.value = [];
+  movieResponse.value = "";
 }
 </script>
