@@ -1,5 +1,23 @@
 <template>
-  <div class="container">
+  <div class="app-shell" :class="{ 'search-bg': !showSplash }">
+    <div v-if="showSplash" class="splash">
+      <div class="splash-card">
+        <img
+          class="splash-image"
+          src="/flickfeast.png"
+          alt="flickfeast splash"
+        />
+        <div class="splash-actions">
+          <h2>Movie-inspired recipes & party ideas</h2>
+          <p>Pick a film and let the party menu come to life.</p>
+          <button type="button" @click="showSplash = false">
+            Start planning
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="container">
     <div class="brand">
       <div class="brand-dot"></div>
       <div>
@@ -126,6 +144,7 @@
       </div>
       <p v-if="menuNotes" class="note">{{ menuNotes }}</p>
     </div>
+    </div>
   </div>
 </template>
 
@@ -144,6 +163,7 @@ const selectedMovie = ref(null);
 const isSubmitting = ref(false);
 let searchTimeout = null;
 const missingClientId = ref(false);
+const showSplash = ref(true);
 const isTestMode =
   import.meta.env.VITE_IN_TEST === "true" ||
   import.meta.env.IN_TEST === "true";

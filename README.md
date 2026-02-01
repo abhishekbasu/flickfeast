@@ -38,4 +38,4 @@ Minimal full-stack starter for a Google-authenticated movie prompt flow.
 - The backend verifies the Google ID token using `GOOGLE_CLIENT_ID`.
 - In Google Cloud Console, set the OAuth client type to Web, add `http://localhost:5173` to Authorized JavaScript origins, and reuse the same client ID for both frontend and backend.
 - Movie lookup uses OMDb when `OMDB_API_KEY` is set, otherwise it falls back to TMDB. TMDB prefers `TMDB_API_READ_ACCESS_TOKEN` (v4) and falls back to `TMDB_API_KEY` (v3 or v4).
-- Agents flow uses `PartyPlanner` as the manager agent. `MovieSearcher` verifies the movie and returns details, then `MovieFoodItems` finds menu items and recipes. `FoodPhotoGenerator` creates images for each menu item.
+- Agents flow uses `PartyPlanner` as the manager agent. `MovieSearcher` verifies the movie and returns details, `MovieFoodItems` builds the menu, `RecipeAgent` optionally generates one recipe per item, and `FoodPhotoGenerator` creates images for each menu item.

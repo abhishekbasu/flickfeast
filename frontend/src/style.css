@@ -15,10 +15,22 @@ body {
 
 #app {
   min-height: 100vh;
+  padding: 0;
+}
+
+.app-shell {
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 32px;
+}
+
+.app-shell.search-bg {
+  background:
+    radial-gradient(circle at 10% 10%, rgba(255, 203, 87, 0.35), transparent 40%),
+    radial-gradient(circle at 90% 20%, rgba(255, 123, 89, 0.35), transparent 42%),
+    linear-gradient(135deg, #fff4ea 0%, #f6f0ff 50%, #f2f8ff 100%);
 }
 
 .container {
@@ -27,6 +39,47 @@ body {
   border-radius: 24px;
   padding: 40px;
   box-shadow: 0 24px 60px rgba(20, 20, 50, 0.15);
+}
+
+.splash {
+  width: min(980px, 100%);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 28px;
+  padding: 24px;
+  box-shadow: 0 30px 70px rgba(20, 20, 50, 0.2);
+}
+
+.splash-card {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(260px, 320px);
+  gap: 24px;
+  align-items: center;
+}
+
+.splash-image {
+  width: 100%;
+  border-radius: 20px;
+  object-fit: cover;
+  max-height: 420px;
+}
+
+.splash-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.splash-actions h2 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.splash-actions p {
+  margin: 0;
+  color: #555;
+}
+
+.splash-actions button {
+  justify-self: start;
 }
 
 .brand {
@@ -139,9 +192,21 @@ p {
 
 .menu-card img {
   width: 100%;
-  max-height: 180px;
+  max-height: 120px;
   object-fit: cover;
   border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+  .splash-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .panel-grid.selected {
+    grid-template-columns: 1fr;
+  }
 }
 
 .menu-title {

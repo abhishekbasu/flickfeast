@@ -44,6 +44,7 @@ class MenuItemResponse(BaseModel):
 
 
 class RecipeResponse(BaseModel):
+    item_name: str | None = None
     title: str
     source: str
     url: str

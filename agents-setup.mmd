@@ -5,7 +5,8 @@ flowchart LR
     Manager --> Searcher["MovieSearcher"]
     Searcher -->|"get_movie_details"| MovieAPI["OMDb/TMDB"]
     Searcher --> Food["MovieFoodItems"]
-    Food -->|"find_recipes"| Recipes["Recipe APIs"]
+    Manager --> Recipe["RecipeAgent"]
+    Recipe -->|"find_recipe"| Recipes["Recipe APIs"]
     Manager --> Photos["FoodPhotoGenerator"]
     Photos -->|"generate_food_image"| OpenAIImages["OpenAI Images API"]
     Food --> Manager

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -9,6 +10,7 @@ from pydantic import BaseModel, ValidationError
 
 from .config import settings
 from .image_cache import DiskImageCache
+from .menu_cache import MenuCache
 from .movie_api import MovieApiError, fetch_movie_details
 from .recipe_api import RecipeApiError, search_recipes
 
@@ -20,6 +22,7 @@ _image_cache: dict[str, str] = {}
 _image_cache_order: list[str] = []
 _IMAGE_CACHE_MAX = 100
 disk_cache = DiskImageCache(Path(__file__).resolve().parents[1] / "cache" / "images")
+menu_cache = MenuCache(Path(__file__).resolve().parents[1] / "cache" / "menus")
 
 
 @function_tool
@@ -29,9 +32,10 @@ def get_movie_details(title: str) -> dict[str, str]:
 
 
 @function_tool
-def find_recipes(query: str, limit: int = 3) -> list[dict[str, str]]:
-    """Search recipe websites for a query and return recipe summaries."""
-    return search_recipes(query, limit)
+def find_recipe(query: str) -> dict[str, str]:
+    """Search recipe websites and return the top recipe."""
+    results = search_recipes(query, limit=1)
+    return results[0] if results else {"title": "", "source": "", "url": ""}
 
 
 @function_tool
@@ -71,6 +75,7 @@ class MenuItem(BaseModel):
 
 
 class RecipeItem(BaseModel):
+    item_name: str
     title: str
     source: str
     url: str
@@ -88,15 +93,11 @@ movie_food_items = Agent(
         "You are given movie details (title, year, plot). "
         "List exactly 5 iconic food or drink items that are explicitly shown or mentioned in the film. "
         "Exclude non-food items (e.g., cigarettes). "
-        "Use the find_recipes tool to search recipe websites for 2-3 items "
-        "that could be served at a party. "
         "Respond ONLY as strict JSON with this schema: "
         '{"items": [{"name": "Item", "reason": "Why it matters"}], '
-        '"recipes": [{"title": "Recipe", "source": "Site", "url": "https://..."}], '
         '"notes": "short summary"}'
     ),
     model=settings.openai_model,
-    tools=[find_recipes],
     handoff_description="Generate a movie-themed food menu.",
 )
 
@@ -117,11 +118,22 @@ menu_formatter = Agent(
         "You will be given a draft menu response. Convert it to strict JSON that "
         "matches this schema exactly: "
         '{"items": [{"name": "Item", "reason": "Why it matters"}], '
-        '"recipes": [{"title": "Recipe", "source": "Site", "url": "https://..."}], '
         '"notes": "short summary"} '
         "Return ONLY JSON. If data is missing, return empty lists and an explanatory notes string."
     ),
     model=settings.openai_model,
+)
+
+recipe_agent = Agent(
+    name="RecipeAgent",
+    instructions=(
+        "You receive a single menu item and must return exactly one recipe. "
+        "Call find_recipe with the item name. "
+        "Respond ONLY as strict JSON: "
+        '{"item_name": "Item", "title": "Recipe", "source": "Site", "url": "https://..."}'
+    ),
+    model=settings.openai_model,
+    tools=[find_recipe],
 )
 
 movie_searcher = Agent(
@@ -140,11 +152,11 @@ manager = Agent(
     name="PartyPlanner",
     instructions=(
         "You are the manager. Ask MovieSearcher to verify the movie exists and return details. "
-        "Then ask MovieFoodItems to build a menu and recipe list based on those details. "
+        "Then ask MovieFoodItems to build a menu based on those details. "
         "Keep responses concise and structured."
     ),
     model=settings.openai_model,
-    handoffs=[movie_searcher, movie_food_items, food_photo_generator],
+    handoffs=[movie_searcher, movie_food_items, food_photo_generator, recipe_agent],
 )
 
 
@@ -185,6 +197,10 @@ def _parse_menu_output(raw_output: str) -> MenuResponse | None:
 
 
 async def build_menu(movie_title: str) -> dict[str, list[str] | str]:
+    cached_menu = menu_cache.get(movie_title)
+    if cached_menu:
+        logger.info("Menu cache hit for title=%s", movie_title)
+        return cached_menu
     try:
         result = await Runner.run(
             manager,
@@ -218,10 +234,28 @@ async def build_menu(movie_title: str) -> dict[str, list[str] | str]:
             logger.exception("Menu format repair failed for title=%s", movie_title)
             parsed = None
 
-    if not parsed:
-        return {"items": [], "notes": "Menu format invalid"}
+    if not parsed or not parsed.items:
+        logger.warning("Menu items missing for title=%s. Retrying with direct food agent.", movie_title)
+        try:
+            details = fetch_movie_details(movie_title)
+            retry = await Runner.run(
+                movie_food_items,
+                input=(
+                    f"Movie title: {details.get('title')} ({details.get('year')}). "
+                    f"Plot: {details.get('plot')}"
+                ),
+                max_turns=2,
+            )
+            parsed = _parse_menu_output(retry.final_output)
+        except Exception:
+            logger.exception("Direct menu retry failed for title=%s", movie_title)
+            parsed = None
+
+    if not parsed or not parsed.items:
+        return {"items": [], "notes": "No menu items were provided."}
 
     menu_payload = parsed.model_dump()
+    menu_payload["recipes"] = []
     for item in menu_payload.get("items", []):
         if item.get("image_data"):
             continue
@@ -259,4 +293,26 @@ async def build_menu(movie_title: str) -> dict[str, list[str] | str]:
         except Exception:
             logger.exception("Image generation failed for item=%s", item.get("name"))
 
+    async def _fetch_recipe(item_name: str) -> dict[str, str]:
+        try:
+            run = await Runner.run(
+                recipe_agent,
+                input=f"Menu item: {item_name}",
+                max_turns=2,
+                run_config=RunConfig(tracing_disabled=True),
+            )
+            payload = run.final_output if isinstance(run.final_output, dict) else _extract_json(run.final_output)
+            if isinstance(payload, dict) and payload.get("title"):
+                payload["item_name"] = payload.get("item_name") or item_name
+                return payload
+        except Exception:
+            logger.exception("Recipe generation failed for item=%s", item_name)
+        return {"item_name": item_name, "title": "", "source": "", "url": ""}
+
+    recipes = await asyncio.gather(
+        *[_fetch_recipe(item.get("name", "")) for item in menu_payload.get("items", [])]
+    )
+    menu_payload["recipes"] = [recipe for recipe in recipes if recipe.get("title")]
+
+    menu_cache.set(movie_title, menu_payload)
     return menu_payload
