@@ -86,7 +86,7 @@ movie_food_items = Agent(
     name="MovieFoodItems",
     instructions=(
         "You are given movie details (title, year, plot). "
-        "List 5-6 iconic food or drink items that are explicitly shown or mentioned in the film. "
+        "List exactly 5 iconic food or drink items that are explicitly shown or mentioned in the film. "
         "Exclude non-food items (e.g., cigarettes). "
         "Use the find_recipes tool to search recipe websites for 2-3 items "
         "that could be served at a party. "
@@ -168,6 +168,8 @@ def _coerce_menu_payload(payload: dict) -> dict:
     items = payload.get("items", [])
     if items and isinstance(items, list) and isinstance(items[0], str):
         payload["items"] = [{"name": item, "reason": ""} for item in items]
+    if isinstance(payload.get("items"), list):
+        payload["items"] = payload["items"][:5]
     return payload
 
 

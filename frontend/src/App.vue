@@ -54,12 +54,19 @@
             v-model="movieTitle"
             type="text"
             placeholder="Type a movie title"
+            :disabled="selectedMovie || isSubmitting"
             @input="queueSearch"
             @keyup.enter="submitMovie"
           />
           <button :disabled="isSubmitting || selectedMovie" @click="submitMovie">
             Continue
           </button>
+          <div v-if="isSubmitting" class="loading">
+            <div class="loading-text">Generating your dream menu</div>
+            <div class="loading-bar">
+              <span></span>
+            </div>
+          </div>
           <div v-if="searchResults.length" class="results">
             <div class="note">Select the best match:</div>
             <button
@@ -188,7 +195,8 @@ async function submitMovie() {
 
   const data = await res.json();
   menuItems.value = data.items || [];
-  menuNotes.value = data.notes || "";
+  const notes = data.notes || "";
+  menuNotes.value = notes.toLowerCase().includes("no recipes") ? "" : notes;
   recipes.value = data.recipes || [];
   movieResponse.value = menuItems.value.length
     ? "Here is your movie-themed menu."
