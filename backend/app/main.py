@@ -1,11 +1,18 @@
 import logging
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import RedirectResponse
+import secrets
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .agents_flow import build_menu
-from .auth import GoogleAuthError, verify_google_token
+from .auth import (
+    GoogleAuthError,
+    build_google_auth_url,
+    exchange_code_for_token,
+    verify_google_token,
+)
 from .movie_api import MovieApiError, search_movies
 from .config import settings
 
@@ -44,15 +51,15 @@ class MenuItemResponse(BaseModel):
 
 
 class RecipeResponse(BaseModel):
-    item_name: str | None = None
     title: str
     source: str
     url: str
+    ingredients: list[str] = []
+    steps: list[str] = []
 
 
 class MenuResponse(BaseModel):
     items: list[MenuItemResponse]
-    recipes: list[RecipeResponse] = []
     notes: str | None = None
 
 
@@ -70,6 +77,35 @@ async def auth_google(payload: GoogleTokenRequest) -> dict[str, str | None]:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
     return user
+
+
+@app.get("/auth/google/start")
+async def auth_google_start() -> dict[str, str]:
+    state = secrets.token_urlsafe(16)
+    try:
+        url = build_google_auth_url(state)
+    except GoogleAuthError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"auth_url": url}
+
+
+@app.get("/auth/google/callback", response_model=None)
+async def auth_google_callback(
+    code: str | None = Query(default=None),
+    error: str | None = Query(default=None),
+) -> dict[str, str | None] | RedirectResponse:
+    if error:
+        return RedirectResponse(url=settings.google_redirect_uri + f"?error={error}")
+    if not code:
+        return RedirectResponse(url=settings.google_redirect_uri + "?error=missing_code")
+    try:
+        token_payload = exchange_code_for_token(code)
+        id_token_value = token_payload.get("id_token")
+        if not id_token_value:
+            raise GoogleAuthError("Missing id_token in token response")
+        return verify_google_token(id_token_value)
+    except GoogleAuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 @app.post("/movies/lookup")

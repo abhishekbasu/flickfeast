@@ -15,10 +15,10 @@ frontend:
 	cd frontend && npm run dev
 
 backend-install:
-	uv pip install -r requirements.txt
+	uv sync
 
 frontend-install:
-	cd frontend && npm install
+	cd frontend && npm install && npm run build
 
 package:
 	git ls-files | zip -@ $(HOME)/flickfeast.zip

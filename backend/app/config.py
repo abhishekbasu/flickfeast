@@ -21,6 +21,10 @@ logging.basicConfig(
 class Settings:
     def __init__(self) -> None:
         self.google_client_id = os.getenv("GOOGLE_CLIENT_ID", "")
+        self.google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
+        self.google_redirect_uri = os.getenv(
+            "GOOGLE_REDIRECT_URI", "http://localhost:5173/auth/google/callback"
+        )
         self.allowed_origins = [
             origin.strip()
             for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(
@@ -33,7 +37,7 @@ class Settings:
         self.tmdb_read_access_token = os.getenv("TMDB_API_READ_ACCESS_TOKEN", "")
         self.spoonacular_api_key = os.getenv("SPOONACULAR_API_KEY", "")
         self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-        self.openai_image_model = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1")
+        self.openai_image_model = os.getenv("OPENAI_IMAGE_MODEL", "gpt-image-1-mini")
 
 
 settings = Settings()

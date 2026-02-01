@@ -10,9 +10,21 @@
         <div class="splash-actions">
           <h2>Movie-inspired recipes & party ideas</h2>
           <p>Pick a film and let the party menu come to life.</p>
-          <button type="button" @click="showSplash = false">
+          <button v-if="!isTestMode" type="button" @click="startGoogleLogin">
+            Continue with Google
+          </button>
+          <button v-else type="button" @click="bypassLogin">
+            Continue in test mode
+          </button>
+          <p v-if="missingClientId" class="note">
+            Missing VITE_GOOGLE_CLIENT_ID. Add it to frontend/.env and restart Vite.
+          </p>
+          <button type="button" :disabled="!canStart" @click="showSplash = false">
             Start planning
           </button>
+          <p v-if="!user" class="note">
+            Please sign in to continue.
+          </p>
         </div>
       </div>
     </div>
@@ -28,8 +40,10 @@
 
     <div v-if="!user" class="panel">
       <strong>Sign in to continue</strong>
-      <div v-if="!isTestMode" id="google-signin"></div>
-      <button v-else type="button" @click="bypassLogin">
+      <button v-if="!isTestMode" type="button" @click="startGoogleLogin">
+        Continue with Google
+      </button>
+      <button v-else-if="!user" type="button" @click="bypassLogin">
         Continue in test mode
       </button>
       <p v-if="missingClientId" class="note">
@@ -55,31 +69,34 @@
           <div>
             <div class="selected-title">{{ selectedMovie.title }}</div>
             <div class="selected-year">{{ selectedMovie.year }}</div>
-            <button
-              type="button"
-              class="link-button"
-              @click="clearSelection"
-            >
-              Search another movie
-            </button>
           </div>
         </div>
 
         <div class="panel-main">
-          <label for="movie">What movie are we watching?</label>
-          <input
-            id="movie"
-            v-model="movieTitle"
-            type="text"
-            placeholder="Type a movie title"
-            :disabled="selectedMovie || isSubmitting"
-            @input="queueSearch"
-            @keyup.enter="submitMovie"
-          />
-          <button :disabled="isSubmitting || selectedMovie" @click="submitMovie">
-            Continue
-          </button>
-          <div v-if="isSubmitting" class="loading">
+          <template v-if="!isSubmitting">
+            <label for="movie">What movie are we watching?</label>
+            <input
+              id="movie"
+              v-model="movieTitle"
+              type="text"
+              placeholder="Type a movie title"
+              :disabled="selectedMovie || isSubmitting"
+              @input="queueSearch"
+              @keyup.enter="submitMovie"
+            />
+            <button :disabled="isSubmitting || selectedMovie" @click="submitMovie">
+              Continue
+            </button>
+            <button
+              v-if="selectedMovie"
+              type="button"
+              class="secondary-button"
+              @click="clearSelection"
+            >
+              Search another movie
+            </button>
+          </template>
+          <div v-else class="loading">
             <div class="loading-text">Generating your dream menu</div>
             <div class="loading-bar">
               <span></span>
@@ -122,41 +139,65 @@
       </div>
       <p v-if="movieResponse" class="note">{{ movieResponse }}</p>
       <div v-if="menuItems.length" class="menu-grid">
-        <div v-for="item in menuItems" :key="item.name" class="menu-card">
+        <div
+          v-for="item in menuItems"
+          :key="item.name"
+          class="menu-card"
+          @click="openRecipe(item)"
+        >
           <img v-if="item.image_data" :src="item.image_data" alt="" />
           <div class="menu-title">{{ item.name }}</div>
           <div class="menu-reason">{{ item.reason }}</div>
         </div>
       </div>
-      <div v-if="recipes.length" class="recipes">
-        <div class="note">Suggested recipes</div>
-        <a
-          v-for="recipe in recipes"
-          :key="recipe.title + recipe.url"
-          class="recipe-link"
-          :href="recipe.url"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <span>{{ recipe.title }}</span>
-          <span class="recipe-source">{{ recipe.source }}</span>
-        </a>
-      </div>
       <p v-if="menuNotes" class="note">{{ menuNotes }}</p>
     </div>
+    </div>
+  </div>
+
+  <div v-if="activeRecipe" class="modal-backdrop" @click="closeRecipe">
+    <div class="modal" @click.stop>
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">{{ activeRecipe.name }}</div>
+          <div class="modal-subtitle">{{ activeRecipe.recipe.title }}</div>
+        </div>
+        <button type="button" class="modal-close" @click="closeRecipe">Close</button>
+      </div>
+      <a
+        v-if="activeRecipe.recipe.url"
+        class="modal-link"
+        :href="activeRecipe.recipe.url"
+        target="_blank"
+        rel="noreferrer"
+      >
+        {{ activeRecipe.recipe.source || "Recipe source" }}
+      </a>
+      <div v-if="activeRecipe.recipe.ingredients?.length" class="recipe-section">
+        <div class="recipe-label">Ingredients</div>
+        <ul>
+          <li v-for="line in activeRecipe.recipe.ingredients" :key="line">{{ line }}</li>
+        </ul>
+      </div>
+      <div v-if="activeRecipe.recipe.steps?.length" class="recipe-section">
+        <div class="recipe-label">Steps</div>
+        <ol>
+          <li v-for="step in activeRecipe.recipe.steps" :key="step">{{ step }}</li>
+        </ol>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 const user = ref(null);
 const movieTitle = ref("");
 const movieResponse = ref("");
 const menuItems = ref([]);
 const menuNotes = ref("");
-const recipes = ref([]);
+const activeRecipe = ref(null);
 const searchResults = ref([]);
 const showEmptyState = ref(false);
 const selectedMovie = ref(null);
@@ -164,6 +205,7 @@ const isSubmitting = ref(false);
 let searchTimeout = null;
 const missingClientId = ref(false);
 const showSplash = ref(true);
+const canStart = computed(() => Boolean(user.value));
 const isTestMode =
   import.meta.env.VITE_IN_TEST === "true" ||
   import.meta.env.IN_TEST === "true";
@@ -184,6 +226,7 @@ async function handleCredentialResponse(response) {
     }
 
     user.value = await res.json();
+    showSplash.value = false;
   } catch (err) {
     console.error(err);
     alert("Google sign-in failed. Check backend logs and client ID.");
@@ -208,7 +251,7 @@ async function submitMovie() {
     movieResponse.value = "Unable to build a menu right now.";
     menuItems.value = [];
     menuNotes.value = "";
-    recipes.value = [];
+    activeRecipe.value = null;
     isSubmitting.value = false;
     return;
   }
@@ -217,7 +260,7 @@ async function submitMovie() {
   menuItems.value = data.items || [];
   const notes = data.notes || "";
   menuNotes.value = notes.toLowerCase().includes("no recipes") ? "" : notes;
-  recipes.value = data.recipes || [];
+  activeRecipe.value = null;
   movieResponse.value = menuItems.value.length
     ? "Here is your movie-themed menu."
     : "No menu items found.";
@@ -226,6 +269,14 @@ async function submitMovie() {
 }
 
 onMounted(() => {
+  const cachedUser = localStorage.getItem("ff_user");
+  if (cachedUser) {
+    try {
+      user.value = JSON.parse(cachedUser);
+    } catch (err) {
+      localStorage.removeItem("ff_user");
+    }
+  }
   if (isTestMode) {
     return;
   }
@@ -235,24 +286,10 @@ onMounted(() => {
     return;
   }
 
-  const initGoogle = () => {
-    if (!window.google || !window.google.accounts) {
-      setTimeout(initGoogle, 200);
-      return;
-    }
-
-    window.google.accounts.id.initialize({
-      client_id: googleClientId,
-      callback: handleCredentialResponse,
-    });
-
-    window.google.accounts.id.renderButton(
-      document.getElementById("google-signin"),
-      { theme: "outline", size: "large", width: 280 }
-    );
-  };
-
-  initGoogle();
+  if (!googleClientId) {
+    console.warn("Missing VITE_GOOGLE_CLIENT_ID");
+    missingClientId.value = true;
+  }
 });
 
 function bypassLogin() {
@@ -306,7 +343,31 @@ function clearSelection() {
   selectedMovie.value = null;
   menuItems.value = [];
   menuNotes.value = "";
-  recipes.value = [];
   movieResponse.value = "";
+}
+
+function openRecipe(item) {
+  if (!item.recipe) {
+    return;
+  }
+  activeRecipe.value = { name: item.name, recipe: item.recipe };
+}
+
+function closeRecipe() {
+  activeRecipe.value = null;
+}
+
+async function startGoogleLogin() {
+  try {
+    const res = await fetch(`${apiBaseUrl}/auth/google/start`);
+    if (!res.ok) {
+      throw new Error("Failed to start auth");
+    }
+    const data = await res.json();
+    window.location.href = data.auth_url;
+  } catch (err) {
+    console.error(err);
+    alert("Unable to start Google sign-in.");
+  }
 }
 </script>

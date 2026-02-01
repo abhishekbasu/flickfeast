@@ -5,7 +5,7 @@ from pathlib import Path
 
 from agents import Agent, ModelSettings, RunConfig, Runner, function_tool
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel, ValidationError
 
 from .config import settings
@@ -17,7 +17,7 @@ from .recipe_api import RecipeApiError, search_recipes
 load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
-openai_client = OpenAI()
+async_openai_client = AsyncOpenAI()
 _image_cache: dict[str, str] = {}
 _image_cache_order: list[str] = []
 _IMAGE_CACHE_MAX = 100
@@ -39,7 +39,7 @@ def find_recipe(query: str) -> dict[str, str]:
 
 
 @function_tool
-def generate_food_image(item_name: str) -> dict[str, str]:
+async def generate_food_image(item_name: str) -> dict[str, str]:
     """Generate a food image via OpenAI and cache it on disk."""
     cache_key = item_name.strip().lower()
     if cache_key:
@@ -52,7 +52,7 @@ def generate_food_image(item_name: str) -> dict[str, str]:
         f"{item_name}, appetizing, high detail, soft shadows."
     )
     try:
-        response = openai_client.images.generate(
+        response = await async_openai_client.images.generate(
             model=settings.openai_image_model,
             prompt=prompt,
             size="1024x1024",
@@ -75,16 +75,16 @@ class MenuItem(BaseModel):
 
 
 class RecipeItem(BaseModel):
-    item_name: str
     title: str
     source: str
     url: str
+    ingredients: list[str] = []
+    steps: list[str] = []
 
 
 class MenuResponse(BaseModel):
     items: list[MenuItem]
     notes: str = ""
-    recipes: list[RecipeItem] = []
 
 
 movie_food_items = Agent(
@@ -128,9 +128,11 @@ recipe_agent = Agent(
     name="RecipeAgent",
     instructions=(
         "You receive a single menu item and must return exactly one recipe. "
-        "Call find_recipe with the item name. "
+        "Call find_recipe exactly once with the item name to find a source, then respond immediately. "
+        "Then generate a concise recipe with ingredients and steps. "
         "Respond ONLY as strict JSON: "
-        '{"item_name": "Item", "title": "Recipe", "source": "Site", "url": "https://..."}'
+        '{"title": "Recipe", "source": "Site", "url": "https://...", '
+        '"ingredients": ["..."], "steps": ["..."]}'
     ),
     model=settings.openai_model,
     tools=[find_recipe],
@@ -200,76 +202,76 @@ async def build_menu(movie_title: str) -> dict[str, list[str] | str]:
     cached_menu = menu_cache.get(movie_title)
     if cached_menu:
         logger.info("Menu cache hit for title=%s", movie_title)
-        return cached_menu
-    try:
-        result = await Runner.run(
-            manager,
-            input=(f"Movie title: {movie_title}. Verify it and build the menu."),
-        )
-    except MovieApiError as exc:
-        logger.exception("Movie lookup failed for menu title=%s", movie_title)
-        return {"items": [], "notes": str(exc)}
-    except RecipeApiError as exc:
-        logger.exception("Recipe lookup failed for title=%s", movie_title)
-        return {"items": [], "notes": str(exc)}
-    except Exception as exc:
-        logger.exception("Agents menu generation failed for title=%s", movie_title)
-        return {"items": [], "notes": "Menu generation failed"}
-
-    parsed = _parse_menu_output(result.final_output)
-    if not parsed:
-        logger.warning(
-            "Menu output failed schema validation for title=%s. Attempting repair.",
-            movie_title,
-        )
-        logger.debug("Raw menu output: %s", str(result.final_output)[:2000])
+        menu_payload = cached_menu
+    else:
+        menu_payload = None
+    if menu_payload is None:
         try:
-            repair = await Runner.run(
-                menu_formatter,
-                input=result.final_output,
+            result = await Runner.run(
+                manager,
+                input=(f"Movie title: {movie_title}. Verify it and build the menu."),
             )
-            logger.debug("Repaired menu output: %s", str(repair.final_output)[:2000])
-            parsed = _parse_menu_output(repair.final_output)
+        except MovieApiError as exc:
+            logger.exception("Movie lookup failed for menu title=%s", movie_title)
+            return {"items": [], "notes": str(exc)}
+        except RecipeApiError as exc:
+            logger.exception("Recipe lookup failed for title=%s", movie_title)
+            return {"items": [], "notes": str(exc)}
         except Exception as exc:
-            logger.exception("Menu format repair failed for title=%s", movie_title)
-            parsed = None
+            logger.exception("Agents menu generation failed for title=%s", movie_title)
+            return {"items": [], "notes": "Menu generation failed"}
 
-    if not parsed or not parsed.items:
-        logger.warning("Menu items missing for title=%s. Retrying with direct food agent.", movie_title)
-        try:
-            details = fetch_movie_details(movie_title)
-            retry = await Runner.run(
-                movie_food_items,
-                input=(
-                    f"Movie title: {details.get('title')} ({details.get('year')}). "
-                    f"Plot: {details.get('plot')}"
-                ),
-                max_turns=2,
+        parsed = _parse_menu_output(result.final_output)
+        if not parsed:
+            logger.warning(
+                "Menu output failed schema validation for title=%s. Attempting repair.",
+                movie_title,
             )
-            parsed = _parse_menu_output(retry.final_output)
-        except Exception:
-            logger.exception("Direct menu retry failed for title=%s", movie_title)
-            parsed = None
+            logger.debug("Raw menu output: %s", str(result.final_output)[:2000])
+            try:
+                repair = await Runner.run(
+                    menu_formatter,
+                    input=result.final_output,
+                )
+                logger.debug("Repaired menu output: %s", str(repair.final_output)[:2000])
+                parsed = _parse_menu_output(repair.final_output)
+            except Exception as exc:
+                logger.exception("Menu format repair failed for title=%s", movie_title)
+                parsed = None
 
-    if not parsed or not parsed.items:
-        return {"items": [], "notes": "No menu items were provided."}
+        if not parsed or not parsed.items:
+            logger.warning("Menu items missing for title=%s. Retrying with direct food agent.", movie_title)
+            try:
+                details = fetch_movie_details(movie_title)
+                retry = await Runner.run(
+                    movie_food_items,
+                    input=(
+                        f"Movie title: {details.get('title')} ({details.get('year')}). "
+                        f"Plot: {details.get('plot')}"
+                    ),
+                    max_turns=2,
+                )
+                parsed = _parse_menu_output(retry.final_output)
+            except Exception:
+                logger.exception("Direct menu retry failed for title=%s", movie_title)
+                parsed = None
 
-    menu_payload = parsed.model_dump()
-    menu_payload["recipes"] = []
-    for item in menu_payload.get("items", []):
+        if not parsed or not parsed.items:
+            return {"items": [], "notes": "No menu items were provided."}
+
+        menu_payload = parsed.model_dump()
+    async def _fetch_image(item: dict) -> str | None:
         if item.get("image_data"):
-            continue
+            return item.get("image_data")
         cache_key = item.get("name", "").strip().lower()
         if cache_key and cache_key in _image_cache:
-            item["image_data"] = _image_cache[cache_key]
-            continue
+            return _image_cache[cache_key]
         if cache_key:
             cached = disk_cache.get(cache_key)
             if cached:
                 _image_cache[cache_key] = cached
                 _image_cache_order.append(cache_key)
-                item["image_data"] = cached
-                continue
+                return cached
         try:
             photo = await Runner.run(
                 food_photo_generator,
@@ -283,36 +285,67 @@ async def build_menu(movie_title: str) -> dict[str, list[str] | str]:
             if isinstance(parsed_photo, dict) and parsed_photo.get("image_key"):
                 cached = disk_cache.get(parsed_photo["image_key"])
                 if cached:
-                    item["image_data"] = cached
-            if item.get("image_data") and cache_key:
-                _image_cache[cache_key] = item["image_data"]
-                _image_cache_order.append(cache_key)
-                if len(_image_cache_order) > _IMAGE_CACHE_MAX:
-                    oldest = _image_cache_order.pop(0)
-                    _image_cache.pop(oldest, None)
+                    if cache_key:
+                        _image_cache[cache_key] = cached
+                        _image_cache_order.append(cache_key)
+                        if len(_image_cache_order) > _IMAGE_CACHE_MAX:
+                            oldest = _image_cache_order.pop(0)
+                            _image_cache.pop(oldest, None)
+                    return cached
         except Exception:
             logger.exception("Image generation failed for item=%s", item.get("name"))
+        return None
+
+    async def _fallback_recipe(item_name: str) -> dict[str, str]:
+        seed = find_recipe(item_name)
+        title = seed.get("title") or item_name
+        source = seed.get("source", "")
+        url = seed.get("url", "")
+        return {
+            "title": title,
+            "source": source,
+            "url": url,
+            "ingredients": [
+                f"{item_name} base ingredient",
+                "Seasoning to taste",
+                "Optional garnish",
+            ],
+            "steps": [
+                f"Prepare the {item_name} ingredients.",
+                "Cook until done and season to taste.",
+                "Plate and add garnish.",
+            ],
+        }
 
     async def _fetch_recipe(item_name: str) -> dict[str, str]:
         try:
             run = await Runner.run(
                 recipe_agent,
                 input=f"Menu item: {item_name}",
-                max_turns=2,
+                max_turns=4,
                 run_config=RunConfig(tracing_disabled=True),
             )
             payload = run.final_output if isinstance(run.final_output, dict) else _extract_json(run.final_output)
             if isinstance(payload, dict) and payload.get("title"):
-                payload["item_name"] = payload.get("item_name") or item_name
                 return payload
         except Exception:
             logger.exception("Recipe generation failed for item=%s", item_name)
-        return {"item_name": item_name, "title": "", "source": "", "url": ""}
+        return await _fallback_recipe(item_name)
 
-    recipes = await asyncio.gather(
-        *[_fetch_recipe(item.get("name", "")) for item in menu_payload.get("items", [])]
+    items = menu_payload.get("items", [])
+    image_tasks = [_fetch_image(item) for item in items]
+    recipe_tasks = [_fetch_recipe(item.get("name", "")) for item in items]
+    image_results, recipes = await asyncio.gather(
+        asyncio.gather(*image_tasks),
+        asyncio.gather(*recipe_tasks),
     )
-    menu_payload["recipes"] = [recipe for recipe in recipes if recipe.get("title")]
+    for item, image_data in zip(items, image_results, strict=False):
+        if image_data:
+            item["image_data"] = image_data
+
+    for item, recipe in zip(items, recipes, strict=False):
+        if recipe.get("title"):
+            item["recipe"] = recipe
 
     menu_cache.set(movie_title, menu_payload)
     return menu_payload

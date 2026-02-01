@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signing in...</title>
+  </head>
+  <body>
+    <p>Completing sign in...</p>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      const error = params.get("error");
+
+      const backendOrigin = window.location.origin.includes("localhost:5173")
+        ? "http://localhost:8000"
+        : window.location.origin;
+
+      if (error) {
+        document.body.textContent = `Login failed: ${error}`;
+      } else if (!code) {
+        document.body.textContent = "Missing authorization code.";
+      } else {
+        fetch(`${backendOrigin}/auth/google/callback?code=${encodeURIComponent(code)}`)
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error("Auth failed");
+            }
+            return res.json();
+          })
+          .then((data) => {
+            if (!data || !data.email) {
+              throw new Error("Invalid auth response");
+            }
+            localStorage.setItem("ff_user", JSON.stringify(data));
+            window.location.href = "/";
+          })
+          .catch(() => {
+            document.body.textContent = "Login failed.";
+          });
+      }
+    </script>
+  </body>
+</html>
