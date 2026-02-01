@@ -22,11 +22,16 @@
         document.body.textContent = "Missing authorization code.";
       } else {
         fetch(`${backendOrigin}/auth/google/callback?code=${encodeURIComponent(code)}`)
-          .then((res) => {
+          .then(async (res) => {
+            const contentType = res.headers.get("content-type") || "";
+            const bodyText = await res.text();
             if (!res.ok) {
-              throw new Error("Auth failed");
+              throw new Error(bodyText || "Auth failed");
             }
-            return res.json();
+            if (!contentType.includes("application/json")) {
+              throw new Error(bodyText || "Unexpected response");
+            }
+            return JSON.parse(bodyText);
           })
           .then((data) => {
             if (!data || !data.email) {
@@ -35,8 +40,8 @@
             localStorage.setItem("ff_user", JSON.stringify(data));
             window.location.href = "/";
           })
-          .catch(() => {
-            document.body.textContent = "Login failed.";
+          .catch((err) => {
+            document.body.textContent = `Login failed. ${err.message || ""}`;
           });
       }
     </script>

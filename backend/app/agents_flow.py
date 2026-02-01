@@ -297,7 +297,8 @@ async def build_menu(movie_title: str) -> dict[str, list[str] | str]:
         return None
 
     async def _fallback_recipe(item_name: str) -> dict[str, str]:
-        seed = find_recipe(item_name)
+        seed = search_recipes(item_name, limit=1)
+        seed = seed[0] if seed else {"title": "", "source": "", "url": ""}
         title = seed.get("title") or item_name
         source = seed.get("source", "")
         url = seed.get("url", "")

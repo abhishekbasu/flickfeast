@@ -10,7 +10,7 @@
         <div class="splash-actions">
           <h2>Movie-inspired recipes & party ideas</h2>
           <p>Pick a film and let the party menu come to life.</p>
-          <button v-if="!isTestMode" type="button" @click="startGoogleLogin">
+          <button v-if="!isTestMode && !user" type="button" @click="startGoogleLogin">
             Continue with Google
           </button>
           <button v-else type="button" @click="bypassLogin">
@@ -40,7 +40,7 @@
 
     <div v-if="!user" class="panel">
       <strong>Sign in to continue</strong>
-      <button v-if="!isTestMode" type="button" @click="startGoogleLogin">
+      <button v-if="!isTestMode && !user" type="button" @click="startGoogleLogin">
         Continue with Google
       </button>
       <button v-else-if="!user" type="button" @click="bypassLogin">
@@ -269,6 +269,38 @@ async function submitMovie() {
 }
 
 onMounted(() => {
+  const currentUrl = new URL(window.location.href);
+  if (currentUrl.pathname === "/auth/google/callback") {
+    const code = currentUrl.searchParams.get("code");
+    const error = currentUrl.searchParams.get("error");
+    if (error) {
+      alert(`Login failed: ${error}`);
+    } else if (code) {
+      fetch(`${apiBaseUrl}/auth/google/callback?code=${encodeURIComponent(code)}`)
+        .then(async (res) => {
+          if (!res.ok) {
+            throw new Error("Auth failed");
+          }
+          return res.json();
+        })
+        .then((data) => {
+          if (data && data.email) {
+            localStorage.setItem("ff_user", JSON.stringify(data));
+            user.value = data;
+          } else {
+            throw new Error("Invalid auth response");
+          }
+        })
+        .catch((err) => {
+          console.error(err);
+          alert("Login failed.");
+        })
+        .finally(() => {
+          window.history.replaceState({}, "", "/");
+        });
+    }
+  }
+
   const cachedUser = localStorage.getItem("ff_user");
   if (cachedUser) {
     try {
