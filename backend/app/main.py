@@ -42,8 +42,15 @@ class MenuItemResponse(BaseModel):
     reason: str
 
 
+class RecipeResponse(BaseModel):
+    title: str
+    source: str
+    url: str
+
+
 class MenuResponse(BaseModel):
     items: list[MenuItemResponse]
+    recipes: list[RecipeResponse] = []
     notes: str | None = None
 
 
@@ -80,8 +87,11 @@ async def movie_menu(payload: MovieRequest) -> dict[str, list[dict[str, str]] | 
 
     menu = await build_menu(title)
     if not menu.get("items"):
-        logger.warning("No menu items found for title=%s", title)
-        raise HTTPException(status_code=404, detail=menu.get("notes", "Movie not found"))
+        detail = menu.get("notes", "Menu generation failed")
+        logger.warning("No menu items found for title=%s detail=%s", title, detail)
+        if "not found" in str(detail).lower():
+            raise HTTPException(status_code=404, detail=detail)
+        raise HTTPException(status_code=502, detail=detail)
 
     return menu
 

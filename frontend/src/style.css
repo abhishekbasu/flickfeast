@@ -94,6 +94,32 @@ p {
   font-size: 14px;
 }
 
+.recipes {
+  display: grid;
+  gap: 8px;
+}
+
+.recipe-link {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e0e2ff;
+  background: white;
+  color: #1f1f2e;
+  text-decoration: none;
+}
+
+.recipe-link:hover {
+  border-color: #b8bcff;
+}
+
+.recipe-source {
+  font-size: 12px;
+  color: #666;
+}
+
 input[type="text"] {
   padding: 12px 14px;
   font-size: 16px;

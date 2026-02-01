@@ -81,6 +81,20 @@
           <div class="menu-reason">{{ item.reason }}</div>
         </div>
       </div>
+      <div v-if="recipes.length" class="recipes">
+        <div class="note">Suggested recipes</div>
+        <a
+          v-for="recipe in recipes"
+          :key="recipe.title + recipe.url"
+          class="recipe-link"
+          :href="recipe.url"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span>{{ recipe.title }}</span>
+          <span class="recipe-source">{{ recipe.source }}</span>
+        </a>
+      </div>
       <p v-if="menuNotes" class="note">{{ menuNotes }}</p>
     </div>
   </div>
@@ -94,6 +108,7 @@ const movieTitle = ref("");
 const movieResponse = ref("");
 const menuItems = ref([]);
 const menuNotes = ref("");
+const recipes = ref([]);
 const searchResults = ref([]);
 const showEmptyState = ref(false);
 let searchTimeout = null;
@@ -141,12 +156,14 @@ async function submitMovie() {
     movieResponse.value = "Unable to build a menu right now.";
     menuItems.value = [];
     menuNotes.value = "";
+    recipes.value = [];
     return;
   }
 
   const data = await res.json();
   menuItems.value = data.items || [];
   menuNotes.value = data.notes || "";
+  recipes.value = data.recipes || [];
   movieResponse.value = menuItems.value.length
     ? "Here is your movie-themed menu."
     : "No menu items found.";

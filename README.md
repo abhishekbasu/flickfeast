@@ -10,6 +10,7 @@ Minimal full-stack starter for a Google-authenticated movie prompt flow.
    - `OPENAI_API_KEY` (required for Agents SDK)
    - `OPENAI_MODEL` (optional, defaults to `gpt-4o-mini`)
    - `OMDB_API_KEY` or `TMDB_API_KEY` / `TMDB_API_READ_ACCESS_TOKEN` (movie lookup)
+   - `SPOONACULAR_API_KEY` (optional recipe search; falls back to TheMealDB)
 
 2. Install deps (example with pip):
    - `python -m venv .venv`
@@ -36,3 +37,4 @@ Minimal full-stack starter for a Google-authenticated movie prompt flow.
 - The backend verifies the Google ID token using `GOOGLE_CLIENT_ID`.
 - In Google Cloud Console, set the OAuth client type to Web, add `http://localhost:5173` to Authorized JavaScript origins, and reuse the same client ID for both frontend and backend.
 - Movie lookup uses OMDb when `OMDB_API_KEY` is set, otherwise it falls back to TMDB. TMDB prefers `TMDB_API_READ_ACCESS_TOKEN` (v4) and falls back to `TMDB_API_KEY` (v3 or v4).
+- Agents flow uses `PartyPlanner` as the manager agent. `MovieSearcher` verifies the movie and returns details, then `MovieFoodItems` finds menu items and recipes.
