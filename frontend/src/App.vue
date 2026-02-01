@@ -10,11 +10,8 @@
         <div class="splash-actions">
           <h2>Movie-inspired recipes & party ideas</h2>
           <p>Pick a film and let the party menu come to life.</p>
-          <button v-if="!isTestMode && !user" type="button" @click="startGoogleLogin">
+          <button v-if="!user" type="button" @click="startGoogleLogin">
             Continue with Google
-          </button>
-          <button v-else type="button" @click="bypassLogin">
-            Continue in test mode
           </button>
           <p v-if="missingClientId" class="note">
             Missing VITE_GOOGLE_CLIENT_ID. Add it to frontend/.env and restart Vite.
@@ -40,11 +37,8 @@
 
     <div v-if="!user" class="panel">
       <strong>Sign in to continue</strong>
-      <button v-if="!isTestMode && !user" type="button" @click="startGoogleLogin">
+      <button v-if="!user" type="button" @click="startGoogleLogin">
         Continue with Google
-      </button>
-      <button v-else-if="!user" type="button" @click="bypassLogin">
-        Continue in test mode
       </button>
       <p v-if="missingClientId" class="note">
         Missing VITE_GOOGLE_CLIENT_ID. Add it to frontend/.env and restart Vite.
@@ -206,10 +200,6 @@ let searchTimeout = null;
 const missingClientId = ref(false);
 const showSplash = ref(true);
 const canStart = computed(() => Boolean(user.value));
-const isTestMode =
-  import.meta.env.VITE_IN_TEST === "true" ||
-  import.meta.env.IN_TEST === "true";
-
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -309,9 +299,6 @@ onMounted(() => {
       localStorage.removeItem("ff_user");
     }
   }
-  if (isTestMode) {
-    return;
-  }
   if (!googleClientId) {
     console.warn("Missing VITE_GOOGLE_CLIENT_ID");
     missingClientId.value = true;
@@ -323,20 +310,6 @@ onMounted(() => {
     missingClientId.value = true;
   }
 });
-
-function bypassLogin() {
-  user.value = {
-    name: "Test User",
-    email: "test@example.com",
-    picture:
-      "data:image/svg+xml;utf8," +
-      "<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'>" +
-      "<rect width='96' height='96' rx='24' fill='%23f1f3ff'/>" +
-      "<circle cx='48' cy='38' r='16' fill='%23c7cbe8'/>" +
-      "<rect x='22' y='58' width='52' height='24' rx='12' fill='%23c7cbe8'/>" +
-      "</svg>",
-  };
-}
 
 function queueSearch() {
   if (searchTimeout) {
